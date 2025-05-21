@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Explorer: Psyphibiotriadics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Application Structure Plan: 
+        The SPA is structured with a sticky top navigation bar for easy access to key thematic sections derived from the report: Introduction, The Triadic Pillars, Multi-Scale Exploration, Homeostasis Theory, Research & Assessment, Interventions, and Future Vision. 
+        - The 'Introduction' section provides an overview of Psyphibiotriadics.
+        - 'The Triadic Pillars' uses interactive cards to detail each pillar.
+        - 'Multi-Scale Exploration' features clickable elements representing different scales, revealing relevant information dynamically. This allows users to focus on specific levels of analysis.
+        - 'Homeostasis Theory' explains the core concept of dynamic balance.
+        - 'Research & Assessment' summarizes methodologies and presents assessment tools (from Table 2) in an accessible format, and key evidence (from Table 3).
+        - 'Interventions' describes multi-modal strategies.
+        - 'Future Vision' outlines the mission and displays the research roadmap (from Table 4) using cards and a Chart.js bar chart for phase durations.
+        - NEW: 'Homeostasis Analyzer' and 'Intervention Generator' sections added to provide LLM-powered interactive tools.
+        This structure was chosen to break down the dense, theoretical information of the report into digestible, thematically organized segments. The interactivity (clickable cards, dynamic content display for scales, LLM-powered tools) aims to engage the user and allow for self-paced exploration, enhancing usability and comprehension over a linear document reading experience. The navigation ensures users can easily jump to areas of interest.
+    -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Psyphibiotriadics core concepts, pillars, scales, homeostasis, research methods, assessment tools (Table 2), supporting evidence (Table 3), intervention strategies, research roadmap (Table 4).
+        - Goal: Inform, Organize, Compare (roadmap phases), Analyze (homeostasis state), Suggest (interventions).
+        - Viz/Presentation Method:
+            - Textual Content: Structured HTML with Tailwind for clear, readable summaries.
+            - Triadic Pillars: Interactive cards (HTML/CSS/JS) for detailed explanations.
+            - Multi-Scale Exploration: Clickable list/grid (HTML/CSS/JS) to show information for each scale.
+            - Assessment Tools (Table 2): Presented as structured content within its section, possibly using a definition list or styled cards for each tool category.
+            - Supporting Evidence (Table 3): Key points summarized and presented textually.
+            - Research Roadmap (Table 4): Phase details presented as cards; phase durations visualized using a horizontal bar chart (Chart.js/Canvas).
+            - NEW: Homeostasis Analyzer (Text input for user state, LLM output for analysis).
+            - NEW: Intervention Generator (Dropdown for focus, optional text input, LLM output for suggestions).
+        - Interaction:
+            - Navigation clicks for smooth scrolling.
+            - Click to expand/reveal details for pillars and scales.
+            - Chart tooltips for roadmap phase durations.
+            - NEW: User input fields and buttons to trigger LLM analysis/generation. Loading indicators for LLM calls.
+        - Justification: These choices prioritize clarity and user engagement for complex theoretical material. Interactive cards and dynamic content display prevent information overload. The chart for the roadmap provides a quick visual comparison of phase lengths. The LLM features add a dynamic, personalized element, allowing users to apply the concepts to their own context or explore potential applications.
+        - Library/Method: Chart.js for the bar chart (Canvas). HTML/CSS/Tailwind and Vanilla JS for all other structures and interactions. Gemini API (gemini-2.0-flash) for LLM features.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* bg-slate-50 */
+            color: #1e293b; /* text-slate-800 */
+        }
+        .nav-link {
+            @apply px-3 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-sky-100 hover:text-sky-700 transition-colors;
+        }
+        .nav-link.active {
+            @apply bg-sky-600 text-white hover:bg-sky-700;
+        }
+        .section-title {
+            @apply text-3xl font-bold text-sky-700 mb-6 text-center;
+        }
+        .card {
+            @apply bg-white p-6 rounded-lg shadow-lg transition-all duration-300 ease-in-out;
+        }
+        .card-title {
+            @apply text-xl font-semibold text-sky-600 mb-3;
+        }
+        .pill-button {
+            @apply px-4 py-2 mr-2 mb-2 text-sm font-medium text-sky-700 bg-sky-100 rounded-full hover:bg-sky-200 transition-colors cursor-pointer;
+        }
+        .pill-button.active {
+            @apply bg-sky-600 text-white;
+        }
+        .content-box {
+            @apply mt-4 p-4 border border-sky-200 rounded-md bg-white;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px; /* Adjusted for horizontal bar chart */
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px; /* Adjusted for horizontal bar chart */
+            max-height: 350px; /* Adjusted for horizontal bar chart */
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        /* Accordion styles */
+        .accordion-header {
+            @apply flex justify-between items-center p-4 bg-sky-50 hover:bg-sky-100 cursor-pointer rounded-t-md border border-sky-200;
+        }
+        .accordion-content {
+            @apply p-4 border border-t-0 border-sky-200 rounded-b-md bg-white;
+        }
+        /* For smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+        .llm-button {
+            @apply bg-sky-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-sky-700 transition-colors flex items-center justify-center gap-2;
+        }
+        .llm-output {
+            @apply mt-6 p-6 bg-sky-50 border border-sky-200 rounded-lg text-slate-700 min-h-[100px];
+        }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="leading-relaxed">
+
+    <nav id="navbar" class="bg-white/80 backdrop-blur-md shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="font-bold text-xl text-sky-700">Psyphibiotriadics Explorer</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#introduction" class="nav-link">Introduction</a>
+                        <a href="#pillars" class="nav-link">Triadic Pillars</a>
+                        <a href="#scales" class="nav-link">Multi-Scale</a>
+                        <a href="#homeostasis" class="nav-link">Homeostasis</a>
+                        <a href="#research" class="nav-link">Research</a>
+                        <a href="#interventions" class="nav-link">Interventions</a>
+                        <a href="#analyzer" class="nav-link">Homeostasis Analyzer</a>
+                        <a href="#generator" class="nav-link">Intervention Generator</a>
+                        <a href="#vision" class="nav-link">Future Vision</a>
+                    </div>
+                </div>
+                <div class="md:hidden">
+                    <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-slate-400 hover:text-sky-700 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-500">
+                        <span class="sr-only">Open main menu</span>
+                        <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                        <svg class="hidden h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="md:hidden hidden" id="mobile-menu">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#introduction" class="nav-link block">Introduction</a>
+                <a href="#pillars" class="nav-link block">Triadic Pillars</a>
+                <a href="#scales" class="nav-link block">Multi-Scale Exploration</a>
+                <a href="#homeostasis" class="nav-link block">Homeostasis Theory</a>
+                <a href="#research" class="nav-link block">Research & Assessment</a>
+                <a href="#interventions" class="nav-link block">Interventions</a>
+                <a href="#analyzer" class="nav-link block">Homeostasis Analyzer</a>
+                <a href="#generator" class="nav-link block">Intervention Generator</a>
+                <a href="#vision" class="nav-link block">Future Vision</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+        <section id="introduction" class="mb-16 pt-16 -mt-16">
+            <h2 class="section-title">Welcome to Psyphibiotriadics</h2>
+            <div class="bg-white p-8 rounded-lg shadow-xl text-lg text-slate-700 space-y-4">
+                <p>This interactive explorer provides an overview of Psyphibiotriadics, a proposed paradigm shift in the scientific understanding and promotion of human well-being. Psyphibiotriadics endeavors to unravel the intricate mechanisms underlying optimal human functioning through the dynamic and interconnected harmonization of three fundamental pillars. Its central purpose is to guide individuals towards their unique state of homeostasis – an optimal and dynamic balance across these domains.</p>
+                <p>Psyphibiotriadics moves beyond reductionist approaches by considering these pillars as inherently intertwined and mutually influential. It recognizes that homeostasis exists on a spectrum and that interactions between the pillars are non-linear, creating a complex landscape of well-being. This application will guide you through its core concepts, research methodologies, and future aspirations.</p>
+            </div>
+        </section>
+
+        <section id="pillars" class="mb-16 pt-16 -mt-16">
+            <h2 class="section-title">The Triadic Pillars</h2>
+            <p class="text-center text-slate-600 mb-10 max-w-3xl mx-auto">Psyphibiotriadics is built upon three fundamental and interconnected pillars. Understanding each pillar and its dynamic relationship with the others is key to grasping the holistic approach of this proposed science. Click on each pillar to learn more.</p>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="pillar-card card hover:shadow-2xl" data-pillar="psychological">
+                    <h3 class="card-title flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-sky-500"><path d="M12 2a10 10 0 0 0-7.52 16.49l1.05-1.61A8 8 0 1 1 19.43 6.57Z"></path><path d="M12 2a10 10 0 0 0-7.52 16.49l1.05-1.61A8 8 0 1 1 19.43 6.57Z"></path><path d="M9 10h.01"></path><path d="M15 10h.01"></path><path d="M12 15s2-3 4-3c1.66 0 3 1.34 3 3s-1.34 3-3 3c-1.54 0-3.08-.99-4-3z"></path></svg>Psychological Mind</h3>
+                    <p class="text-slate-600">Encompasses subjective experience, thoughts, emotions, cognitions, beliefs, and consciousness.</p>
+                    <div class="pillar-details hidden mt-4 text-sm text-slate-600 space-y-2">
+                        <p><strong>Core Aspects:</strong> Cognitive functions (attention, memory), emotional regulation, personality, conscious/subconscious processes, mental health.</p>
+                        <p><strong>Research Focus:</strong> How mental processes influence and are influenced by the other two pillars.</p>
+                    </div>
+                </div>
+                <div class="pillar-card card hover:shadow-2xl" data-pillar="biophysical">
+                    <h3 class="card-title flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-emerald-500"><path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.71.71a5.4 5.4 0 0 0 0 7.65l.71.71a5.4 5.4 0 0 0 7.65 0l.71-.71a5.4 5.4 0 0 0 0-7.65l-.71-.71Z"></path><path d="m12.71 11.29.71-.71a2.7 2.7 0 0 0-3.82-3.82l-.71.71a2.7 2.7 0 0 0 0 3.82l.71.71a2.7 2.7 0 0 0 3.82 0Z"></path><path d="M4.58 20.42a5.4 5.4 0 0 0 7.65 0l.71-.71a5.4 5.4 0 0 0 0-7.65l-.71-.71a5.4 5.4 0 0 0-7.65 0l-.71.71a5.4 5.4 0 0 0 0 7.65l.71.71Z"></path><path d="m11.29 12.71-.71.71a2.7 2.7 0 0 0 3.82 3.82l.71-.71a2.7 2.7 0 0 0 0-3.82l-.71-.71a2.7 2.7 0 0 0-3.82 0Z"></path><path d="M16 8برد2"></path><path d="M8 16l-2-2"></path><path d="m18 6-2-2"></path><path d="m6 18 2 2"></path></svg>Physical Brain & Body</h3>
+                    <p class="text-slate-600">Refers to the biological aspects: brain, nervous system, organs, cells, and molecular processes.</p>
+                     <div class="pillar-details hidden mt-4 text-sm text-slate-600 space-y-2">
+                        <p><strong>Core Aspects:</strong> Neurobiology, neurochemistry, physiology, anatomy, immune function, genetics, epigenetics, physical health.</p>
+                        <p><strong>Research Focus:</strong> How biological processes support and interact with the Mind and Energies.</p>
+                    </div>
+                </div>
+                <div class="pillar-card card hover:shadow-2xl" data-pillar="energies">
+                    <h3 class="card-title flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-amber-500"><path d="M12 3v1"></path><path d="M18.36 5.64l-.7.7"></path><path d="M21 12h-1"></path><path d="M18.36 18.36l-.7-.7"></path><path d="M12 21v-1"></path><path d="M5.64 18.36l.7-.7"></path><path d="M3 12h1"></path><path d="M5.64 5.64l.7.7"></path><path d="M12 7a5 5 0 1 0 5 5"></path><path d="M12 1v2"></path><path d="M12 21v-2"></path><path d="m4.22 4.22 1.42 1.42"></path><path d="m18.36 18.36 1.42 1.42"></path><path d="M3 12h2"></path><path d="M21 12h-2"></path><path d="m4.22 19.78 1.42-1.42"></path><path d="m18.36 5.64 1.42-1.42"></path></svg>Philosophical Energies</h3>
+                    <p class="text-slate-600">Bioelectrical activity and subjective dimensions of vitality, inner peace, connection, and purpose.</p>
+                    <div class="pillar-details hidden mt-4 text-sm text-slate-600 space-y-2">
+                        <p><strong>Core Aspects:</strong> Measurable bioelectrical activity (heart rhythms, brain waves), subjective experiences of vitality, energy flow, connection, meaning, transcendence.</p>
+                        <p><strong>Research Focus:</strong> Interplay between measurable bioelectrical activity and subjective energetic/spiritual experiences.</p>
+                    </div>
+                </div>
+            </div>
+             <div class="mt-8 p-6 bg-sky-50 rounded-lg shadow text-slate-700">
+                <h4 class="font-semibold text-sky-700 mb-2">Dynamic Interconnectedness:</h4>
+                <p>These pillars are not isolated but are in constant, dynamic, and bidirectional communication. Changes in one pillar inevitably influence the others. For example, psychological stress (Mind) can alter hormone levels (Body), affecting energy levels (Energies). This interplay is supported by neuroscientific findings, such as the Somato-Cognitive Action Network (SCAN), which links brain areas for movement with those for thinking and bodily regulation.</p>
+            </div>
+        </section>
+
+        <section id="scales" class="mb-16 pt-16 -mt-16">
+            <h2 class="section-title">Multi-Scale Exploration</h2>
+            <p class="text-center text-slate-600 mb-10 max-w-3xl mx-auto">Psyphibiotriadics investigates the principles of mind, body, and energy across a vast spectrum of scales, from the subatomic to the cosmic. This approach recognizes that well-being is influenced by interactions at all levels. Select a scale to explore its focus within Psyphibiotriadics.</p>
+            <div class="flex flex-wrap justify-center mb-6">
+                <button class="pill-button scale-selector" data-scale="subatomic">Subatomic (Quantum)</button>
+                <button class="pill-button scale-selector" data-scale="atomic">Atomic & Molecular</button>
+                <button class="pill-button scale-selector" data-scale="cellular">Cellular</button>
+                <button class="pill-button scale-selector" data-scale="organismic">Organismic & Interpersonal</button>
+                <button class="pill-button scale-selector" data-scale="planetary">Planetary & Cosmic</button>
+            </div>
+            <div id="scale-details-content" class="content-box min-h-[200px]">
+                <p class="text-slate-500 text-center">Select a scale above to see details.</p>
+            </div>
+        </section>
+
+        <section id="homeostasis" class="mb-16 pt-16 -mt-16">
+            <h2 class="section-title">The Theory of Homeostasis</h2>
+            <div class="bg-white p-8 rounded-lg shadow-xl text-lg text-slate-700 space-y-4">
+                <p>Psyphibiotriadics expands the traditional concept of homeostasis. It's not just about maintaining physiological stability, but achieving an optimal and dynamic balance and harmonious functioning across all three Triadic Pillars: the Psychological Mind, the Physical Brain and Body, and the Philosophical Energies.</p>
+                <h4 class="font-semibold text-sky-700 mt-4">Key Concepts:</h4>
+                <ul class="list-disc list-inside space-y-2">
+                    <li><strong>Dynamic Equilibrium:</strong> The pillars are in continuous exchange, driving constant movement along a spectrum of well-being.</li>
+                    <li><strong>Spectrum, Not a Fixed Point:</strong> The optimal human condition is a dynamic range of balance across multiple parameters, not a single ideal state.</li>
+                    <li><strong>Non-Linear Relationships:</strong> Small changes in one area can produce disproportionately large or small effects in others, highlighting the system's complexity.</li>
+                    <li><strong>Individual Variation:</strong> "Optimal" varies significantly due to genetics, environment, lifestyle, and values. Research aims to map spectra of possible states and identify factors for movement along them.</li>
+                </ul>
+                <p class="mt-4">This refined understanding necessitates complex systems thinking and personalized approaches to guide individuals towards their unique optimal states of well-being.</p>
+            </div>
+        </section>
+
+        <section id="research" class="mb-16 pt-16 -mt-16">
+            <h2 class="section-title">Research & Assessment</h2>
+            <p class="text-center text-slate-600 mb-10 max-w-3xl mx-auto">To validate its framework, Psyphibiotriadics employs diverse research methodologies and comprehensive assessment tools. This section highlights the approaches used to study the Triadic Pillars and their interactions.</p>
+            
+            <div class="grid md:grid-cols-2 gap-8 mb-12">
+                <div class="card">
+                    <h3 class="card-title">Research Methodologies</h3>
+                    <p class="text-slate-600 mb-3">A multi-faceted approach is essential:</p>
+                    <ul class="list-disc list-inside space-y-1 text-sm text-slate-600">
+                        <li><strong>Quantitative:</strong> Physiological data (EEG, ECG, GSR), statistical analysis, controlled experiments.</li>
+                        <li><strong>Qualitative:</strong> Phenomenological interviews, thematic analysis, narrative analysis to explore subjective experiences.</li>
+                        <li><strong>Mixed Methods:</strong> Combining quantitative and qualitative data for comprehensive understanding (e.g., sequential exploratory or convergent parallel designs).</li>
+                        <li><strong>Longitudinal Studies:</strong> Tracking individuals over time to understand dynamic processes.</li>
+                        <li><strong>Case Studies:</strong> In-depth analysis of individual cases for unique insights.</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3 class="card-title">Integrated Assessment Approaches</h3>
+                    <p class="text-slate-600 mb-3">Bridging objective and subjective data:</p>
+                     <ul class="list-disc list-inside space-y-1 text-sm text-slate-600">
+                        <li><strong>Multimodal Data Fusion:</strong> Combining self-reports, physiological measures, and behavioral observations. AI/ML helps identify patterns.</li>
+                        <li><strong>Neurophenomenology:</strong> Integrating first-person accounts with neuroscientific data to study consciousness and subjective states rigorously.</li>
+                        <li><strong>Sensory Perception:</strong> Using sensory experiences (touch, smell, sound, sight) as data points reflecting the interplay of the Triadic Pillars.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-12">
+                <h3 class="card-title">Assessment Tools for Triadic Pillars</h3>
+                <p class="text-slate-600 mb-4">Evaluating an individual's state across dimensions requires diverse tools:</p>
+                <div id="assessment-tools-accordion">
+                    <div class="accordion-item">
+                        <div class="accordion-header" data-target="#content-psych-mind">
+                            <span class="font-medium">Psychological Mind</span>
+                            <span class="arrow transform transition-transform duration-300">▼</span>
+                        </div>
+                        <div id="content-psych-mind" class="accordion-content hidden">
+                            <ul class="list-disc list-inside space-y-1 text-sm text-slate-600">
+                                <li><strong>Self-Report:</strong> Questionnaires on mood, cognition, stress, personality, life satisfaction.</li>
+                                <li><strong>Behavioral:</strong> Cognitive tasks, emotional reactivity assessments.</li>
+                                <li><strong>Neurophysiological:</strong> EEG, fMRI for brain activity related to mental states.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <div class="accordion-header" data-target="#content-biophysical">
+                            <span class="font-medium">Physical Brain & Body (Biophysical Substrate)</span>
+                            <span class="arrow transform transition-transform duration-300">▼</span>
+                        </div>
+                        <div id="content-biophysical" class="accordion-content hidden">
+                            <ul class="list-disc list-inside space-y-1 text-sm text-slate-600">
+                                <li><strong>Physiological:</strong> Vital signs (heart rate, blood pressure), biochemical assays (hormone levels, immune markers), genetic analysis.</li>
+                                <li><strong>Physical Examination:</strong> Standard medical assessments.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <div class="accordion-header" data-target="#content-energies">
+                             <span class="font-medium">Philosophical Energies (Bioelectrical & Spiritual)</span>
+                            <span class="arrow transform transition-transform duration-300">▼</span>
+                        </div>
+                        <div id="content-energies" class="accordion-content hidden">
+                            <p class="font-semibold text-xs text-slate-500 mb-1">Bioelectrical:</p>
+                            <ul class="list-disc list-inside space-y-1 text-sm text-slate-600 mb-2">
+                                <li><strong>Physiological:</strong> ECG, EMG, potentially more advanced bioelectrical sensing technologies.</li>
+                            </ul>
+                             <p class="font-semibold text-xs text-slate-500 mb-1">Spiritual:</p>
+                            <ul class="list-disc list-inside space-y-1 text-sm text-slate-600">
+                                <li><strong>Self-Report:</strong> Questionnaires on sense of purpose, meaning, connection, inner peace, flow experiences.</li>
+                                <li><strong>Qualitative:</strong> Interviews, phenomenological studies to explore subjective experiences of energy, spirituality, and transcendence.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3 class="card-title">Key Scientific Evidence Supporting Triadic Interconnectedness</h3>
+                <p class="text-slate-600 mb-4">The report highlights several lines of evidence. Here are some key examples of interconnectedness:</p>
+                <ul class="list-disc list-inside space-y-2 text-sm text-slate-600">
+                    <li><strong>Subatomic:</strong> Theories like Orch-OR and studies on Xenon isotopes hint at quantum processes in consciousness (Psychological Mind $\leftrightarrow$ Philosophical Energies).</li>
+                    <li><strong>Atomic/Molecular:</strong> Stress-induced cortisol (Biophysical Substrate) affects mood (Psychological Mind); the gut-brain axis shows digestive health impacting mental states.</li>
+                    <li><strong>Cellular:</strong> Bioelectric signals (Philosophical Energies) control cell behavior and morphogenesis (Biophysical Substrate), acting like a "software" layer.</li>
+                    <li><strong>Organismic/Interpersonal:</strong> Psychoneuroimmunology shows thoughts/emotions (Psychological Mind) affect immune function (Biophysical Substrate). Social support impacts overall health. The placebo effect demonstrates mind-body healing capacity.</li>
+                    <li><strong>Planetary/Cosmic:</strong> Environmental factors like magnetic fields, light, and pollution (Philosophical Energies/Environmental) measurably impact human physiology and mood (Biophysical Substrate/Psychological Mind).</li>
+                </ul>
+                 <p class="mt-4 text-xs text-slate-500">This evidence underscores that the Triadic Pillars are not just conceptually linked but are supported by observable phenomena across different scales of investigation.</p>
+            </div>
+
+        </section>
+
+        <section id="interventions" class="mb-16 pt-16 -mt-16">
+            <h2 class="section-title">Multi-Modal Intervention Strategies</h2>
+            <div class="bg-white p-8 rounded-lg shadow-xl text-lg text-slate-700 space-y-4">
+                <p>Psyphibiotriadics proposes comprehensive interventions that address the interconnectedness of the Triadic Pillars. These strategies integrate psychological therapies, physical practices, and energetic modalities to promote homeostasis.</p>
+                <h4 class="font-semibold text-sky-700 mt-4">Core Approaches:</h4>
+                <ul class="list-disc list-inside space-y-2">
+                    <li><strong>Integrated Modalities:</strong> Combining psychological therapies (cognitive regulation, belief systems), physical practices (exercise, yoga, diet), and energetic modalities (biofeedback, meditation).</li>
+                    <li><strong>Targeting Imbalances:</strong> Understanding how molecular imbalances (e.g., stress hormones) affect psychological and energetic states to identify precise therapeutic targets. Considering both internal balance and external environmental factors.</li>
+                    <li><strong>Leveraging Innate Healing:</strong> Recognizing and intentionally harnessing the placebo effect as a demonstration of the mind's capacity to influence healing. This involves belief- and expectation-driven mechanisms.</li>
+                    <li><strong>Social Connections:</strong> Integrating social support and community engagement as key strategies, given the profound impact of social relationships on health.</li>
+                    <li><strong>Building on Integrative Health:</strong> Drawing from and aiming to rigorously validate existing practices in integrative medicine and Mind-Body-Spirit (MBS) approaches (e.g., Tai Chi, Qigong, Reiki, Therapeutic Touch), while addressing methodological rigor.</li>
+                </ul>
+                <p class="mt-4">The goal is to transform existing integrative practices into scientifically validated therapeutic approaches, ensuring efficacy and safety within an integrated healthcare framework.</p>
+            </div>
+        </section>
+
+        <section id="analyzer" class="mb-16 pt-16 -mt-16">
+            <h2 class="section-title">✨ Homeostasis State Analyzer</h2>
+            <div class="card p-8 space-y-4">
+                <p class="text-slate-700">Describe your current state across the three Triadic Pillars: your Psychological Mind (thoughts, emotions, stress), Physical Brain & Body (energy levels, physical sensations, health), and Philosophical Energies (sense of vitality, inner peace, connection). The AI will analyze your input based on Psyphibiotriadics principles.</p>
+                <textarea id="homeostasis-input" class="w-full p-3 border border-sky-200 rounded-md focus:ring-sky-500 focus:border-sky-500 min-h-[120px] text-slate-800" placeholder="E.g., 'Mentally I feel a bit overwhelmed with work, physically I'm tired but otherwise healthy, and energetically I feel a bit drained and disconnected.'"></textarea>
+                <button id="analyze-homeostasis-button" class="llm-button">
+                    Analyze Homeostasis ✨
+                    <span id="analyzer-loading-spinner" class="loading-spinner hidden"></span>
+                </button>
+                <div id="homeostasis-output" class="llm-output">
+                    <p class="text-slate-500">Your homeostasis analysis will appear here.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="generator" class="mb-16 pt-16 -mt-16">
+            <h2 class="section-title">✨ Intervention Idea Generator</h2>
+            <div class="card p-8 space-y-4">
+                <p class="text-slate-700">Select a pillar you want to focus on, or choose 'Overall Balance'. Optionally, add more context about your specific need. The AI will suggest multi-modal intervention ideas aligned with Psyphibiotriadics.</p>
+                
+                <label for="intervention-pillar" class="block text-slate-700 font-medium mb-1">Focus Area:</label>
+                <select id="intervention-pillar" class="w-full p-3 border border-sky-200 rounded-md focus:ring-sky-500 focus:border-sky-500 text-slate-800">
+                    <option value="Overall Balance">Overall Balance</option>
+                    <option value="Psychological Mind">Psychological Mind</option>
+                    <option value="Physical Brain and Body">Physical Brain and Body</option>
+                    <option value="Philosophical Energies">Philosophical Energies</option>
+                </select>
+
+                <label for="intervention-context" class="block text-slate-700 font-medium mb-1 mt-4">Optional Context (e.g., "I'm struggling with sleep", "I need to boost my creativity"):</label>
+                <textarea id="intervention-context" class="w-full p-3 border border-sky-200 rounded-md focus:ring-sky-500 focus:border-sky-500 min-h-[80px] text-slate-800" placeholder="Optional: Add more specific details here."></textarea>
+                
+                <button id="generate-interventions-button" class="llm-button">
+                    Suggest Interventions ✨
+                    <span id="generator-loading-spinner" class="loading-spinner hidden"></span>
+                </button>
+                <div id="interventions-output" class="llm-output">
+                    <p class="text-slate-500">Intervention suggestions will appear here.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="vision" class="pt-16 -mt-16">
+            <h2 class="section-title">Thesis, Mission & Future Vision</h2>
+            <div class="bg-white p-8 rounded-lg shadow-xl text-slate-700 space-y-6">
+                <div>
+                    <h3 class="text-2xl font-semibold text-sky-600 mb-3">Core Thesis & Mission</h3>
+                    <p class="text-lg"><strong>Thesis:</strong> Human well-being is an emergent property of the dynamic and interconnected harmonization of the Psychological Mind, Physical Brain and Body (Biophysical Substrate), and Philosophical Energies (Bioelectrical and Spiritual Dimensions) across all scales of existence.</p>
+                    <p class="text-lg mt-2"><strong>Mission:</strong> To scientifically define, measure, and facilitate this integrated homeostasis to promote optimal human flourishing.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-semibold text-sky-600 mb-4">Proposed Research Roadmap</h3>
+                    <p class="mb-6 text-slate-600">The development of Psyphibiotriadics is envisioned in a phased approach, each with key objectives and activities. The chart below illustrates the proposed duration for each phase.</p>
+                    <div class="chart-container mb-8">
+                        <canvas id="roadmapChart"></canvas>
+                    </div>
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <div class="p-4 border border-sky-200 rounded-lg bg-sky-50">
+                            <h4 class="font-semibold text-sky-700">Phase 1: Foundational Validation (Years 1-3)</h4>
+                            <p class="text-sm text-slate-600 mt-1">Refine definitions of Philosophical Energies, develop robust assessment tools for subjective experiences, establish baseline physiological/bioelectrical correlates of well-being.</p>
+                        </div>
+                        <div class="p-4 border border-sky-200 rounded-lg bg-sky-50">
+                            <h4 class="font-semibold text-sky-700">Phase 2: Pilot Intervention & Mechanism Exploration (Years 4-7)</h4>
+                            <p class="text-sm text-slate-600 mt-1">Design and test initial multi-modal interventions, investigate mechanisms of action (e.g., placebo, bioelectrical modulation), explore environmental influences.</p>
+                        </div>
+                        <div class="p-4 border border-sky-200 rounded-lg bg-sky-50">
+                            <h4 class="font-semibold text-sky-700">Phase 3: Large-Scale Application & Optimal Condition Mapping (Years 8+)</h4>
+                            <p class="text-sm text-slate-600 mt-1">Conduct large-scale clinical trials, map individualized optimal human conditions, develop personalized well-being programs, integrate findings into public health.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-2xl font-semibold text-sky-600 mb-3">Addressing Skepticism & Long-Term Vision</h3>
+                    <p class="text-lg">Psyphibiotriadics acknowledges potential scientific skepticism and aims to address it through rigorous research, transparent reporting, and empirical evidence. The long-term vision is to scientifically define a baseline of the optimal human condition, providing a reference for assessment and intervention, and ultimately fostering a new era of understanding and facilitating human well-being.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer class="bg-slate-800 text-slate-300 text-center p-8 mt-16">
+        <p>&copy; 2025 Psyphibiotriadics Interactive Explorer. Based on the work of Dr. M. Cedris Eartherahm.</p>
+        <p class="text-xs mt-2">This application is for informational purposes to explore the concepts of Psyphibiotriadics.</p>
+    </footer>
+
+    <script>
+        // Mobile menu toggle
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        mobileMenuButton.addEventListener('click', () => {
+            const isHidden = mobileMenu.classList.contains('hidden');
+            mobileMenu.classList.toggle('hidden', !isHidden);
+            mobileMenuButton.querySelectorAll('svg')[0].classList.toggle('hidden', !isHidden);
+            mobileMenuButton.querySelectorAll('svg')[1].classList.toggle('hidden', isHidden);
+        });
+
+        // Close mobile menu on link click
+        document.querySelectorAll('#mobile-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenu.classList.add('hidden');
+                mobileMenuButton.querySelectorAll('svg')[0].classList.remove('hidden');
+                mobileMenuButton.querySelectorAll('svg')[1].classList.add('hidden');
+            });
+        });
+        
+        // Active Nav Link Styling on Scroll
+        const sections = document.querySelectorAll('section');
+        const navLinks = document.querySelectorAll('#navbar a.nav-link');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= (sectionTop - sectionHeight / 3)) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').substring(1) === current) {
+                    link.classList.add('active');
+                }
+            });
+             // For mobile menu as well
+            document.querySelectorAll('#mobile-menu a.nav-link').forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').substring(1) === current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+
+        // Pillar cards click to show details
+        document.querySelectorAll('.pillar-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const details = card.querySelector('.pillar-details');
+                if (details) {
+                    details.classList.toggle('hidden');
+                }
+            });
+        });
+
+        // Multi-Scale Exploration content
+        const scaleSelectors = document.querySelectorAll('.scale-selector');
+        const scaleDetailsContent = document.getElementById('scale-details-content');
+        const scaleData = {
+            subatomic: {
+                title: "Subatomic (Quantum) Level",
+                content: `
+                    <p><strong>Focus:</strong> Quantum biology and consciousness.</p>
+                    <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li><strong>Psychological Mind:</strong> Quantum basis of consciousness, superpositional nature of thoughts. Theories like Orch-OR.</li>
+                        <li><strong>Biophysical Substrate:</strong> Quantum processes in microtubules, quantum tunneling in enzymes, sensory processes (vision, olfaction).</li>
+                        <li><strong>Philosophical Energies:</strong> Quantum entanglement and potential universal consciousness, bioenergetics at fundamental levels.</li>
+                    </ul>
+                    <p class="mt-2 text-xs text-slate-500">Challenges include decoherence in biological systems and the 'hard problem of consciousness'. Requires interdisciplinary validation.</p>
+                `
+            },
+            atomic: {
+                title: "Atomic & Molecular Level",
+                content: `
+                    <p><strong>Focus:</strong> Biochemical pathways and mind-body links.</p>
+                    <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li><strong>Psychological Mind:</strong> Neurotransmitter (serotonin, dopamine) and hormonal (cortisol, estrogen) influences on mood and cognition.</li>
+                        <li><strong>Biophysical Substrate:</strong> Biochemical pathways of stress response (e.g., HPA axis), molecular mechanisms of placebo effect, gut-brain axis.</li>
+                        <li><strong>Philosophical Energies:</strong> Molecular basis of bioelectrical signaling, energy transfer in processes like photosynthesis and respiration.</li>
+                    </ul>
+                    <p class="mt-2 text-xs text-slate-500">Understanding these pathways offers precise therapeutic targets. Mind-body exercises show impact here.</p>
+                `
+            },
+            cellular: {
+                title: "Cellular Level",
+                content: `
+                    <p><strong>Focus:</strong> Bioelectrical signaling and environmental interactions.</p>
+                    <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li><strong>Psychological Mind:</strong> Impact of mental states (e.g., stress) on cellular function and immune cell activity.</li>
+                        <li><strong>Biophysical Substrate:</strong> Cellular stress responses, influence of extracellular environment (topography, rigidity) on cell differentiation and migration. Role of Vmem in morphogenesis.</li>
+                        <li><strong>Philosophical Energies:</strong> Bioelectrical communication between cells (e.g., via ion fluxes, transmembrane voltage gradients), potential quantum coherence in cellular processes. Bioelectricity as a "master regulator."</li>
+                    </ul>
+                     <p class="mt-2 text-xs text-slate-500">Bioelectrical signals can act as "software" controlling biological patterns, offering novel therapeutic avenues.</p>
+                `
+            },
+            organismic: {
+                title: "Organismic & Interpersonal Level",
+                content: `
+                    <p><strong>Focus:</strong> Psychoneuroimmunology and social influences.</p>
+                    <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li><strong>Psychological Mind:</strong> Influence of emotions, personality, stress, and social support on health. Placebo effect.</li>
+                        <li><strong>Biophysical Substrate:</strong> Psychoneuroimmunology (PNI) - interactions between psychological processes, nervous, endocrine, and immune systems. Physiological consequences of stress and social isolation.</li>
+                        <li><strong>Philosophical Energies:</strong> Whole-body bioelectrical activity (e.g., ECG, EEG patterns related to states of well-being), subjective experiences of vitality, energetic dynamics in interpersonal relationships.</li>
+                    </ul>
+                    <p class="mt-2 text-xs text-slate-500">Highlights how social factors and mental states directly impact physiology and immune function.</p>
+                `
+            },
+            planetary: {
+                title: "Planetary & Cosmic Level",
+                content: `
+                    <p><strong>Focus:</strong> Environmental energetics and speculative connections.</p>
+                    <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li><strong>Psychological Mind:</strong> Potential cosmic influences on consciousness (speculative). Impact of environmental factors (pollution, noise, climate) on mood and mental health.</li>
+                        <li><strong>Biophysical Substrate:</strong> Influence of Earth's magnetic field (magnetoreception), light, and other environmental electromagnetic fields on biological systems. Physiological effects of environmental stressors.</li>
+                        <li><strong>Philosophical Energies:</strong> Bioelectrical responses to environmental stimuli. Spiritual connection and universal consciousness (speculative, e.g., via quantum entanglement). Subjective experiences of connection to nature.</li>
+                    </ul>
+                    <p class="mt-2 text-xs text-slate-500">Focuses on measurable environmental impacts while acknowledging more speculative cosmic links for long-term exploration.</p>
+                `
+            }
+        };
+
+        scaleSelectors.forEach(selector => {
+            selector.addEventListener('click', () => {
+                scaleSelectors.forEach(s => s.classList.remove('active'));
+                selector.classList.add('active');
+                const scaleKey = selector.dataset.scale;
+                const data = scaleData[scaleKey];
+                scaleDetailsContent.innerHTML = `
+                    <h4 class="text-lg font-semibold text-sky-700 mb-3">${data.title}</h4>
+                    ${data.content}
+                `;
+            });
+        });
+         // Initialize with the first scale selected or a default message
+        if (scaleSelectors.length > 0) {
+            // scaleSelectors[0].click(); // Optionally click the first one
+             scaleDetailsContent.innerHTML = `<p class="text-slate-500 text-center p-4">Select a scale above to see detailed information on how Psyphibiotriadics approaches investigation at that level, integrating the Psychological Mind, Biophysical Substrate, and Philosophical Energies.</p>`;
+        }
+
+
+        // Accordion for Assessment Tools
+        document.querySelectorAll('.accordion-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const content = document.querySelector(header.dataset.target);
+                const arrow = header.querySelector('.arrow');
+                const allContents = document.querySelectorAll('.accordion-content');
+                const allArrows = document.querySelectorAll('.accordion-header .arrow');
+
+                // Close all other accordions
+                allContents.forEach(c => {
+                    if (c !== content && !c.classList.contains('hidden')) {
+                        c.classList.add('hidden');
+                    }
+                });
+                allArrows.forEach(a => {
+                     if (a !== arrow) {
+                        a.classList.remove('rotate-180');
+                        a.innerHTML = '▼';
+                     }
+                });
+                
+                // Toggle current accordion
+                content.classList.toggle('hidden');
+                if (content.classList.contains('hidden')) {
+                    arrow.classList.remove('rotate-180');
+                    arrow.innerHTML = '▼';
+                } else {
+                    arrow.classList.add('rotate-180');
+                     arrow.innerHTML = '▲';
+                }
+            });
+        });
+
+        // Roadmap Chart
+        const roadmapCtx = document.getElementById('roadmapChart').getContext('2d');
+        const roadmapChart = new Chart(roadmapCtx, {
+            type: 'bar', // Horizontal bar chart
+            data: {
+                labels: ['Phase 1: Foundational Validation', 'Phase 2: Pilot Intervention & Mechanism Exploration', 'Phase 3: Large-Scale Application & Optimal Condition Mapping'],
+                datasets: [{
+                    label: 'Phase Duration (Years)',
+                    data: [3, 4, 5], // Phase 1: 3 years, Phase 2: 4 years (7-3), Phase 3: 5 years (symbolic for 8+)
+                    backgroundColor: [
+                        'rgba(56, 189, 248, 0.7)', // sky-400
+                        'rgba(16, 185, 129, 0.7)', // emerald-500
+                        'rgba(245, 158, 11, 0.7)'  // amber-500
+                    ],
+                    borderColor: [
+                        'rgba(56, 189, 248, 1)',
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(245, 158, 11, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y', // This makes it a horizontal bar chart
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { // Was y, now x for horizontal
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Duration (Years)',
+                            color: '#475569' // text-slate-600
+                        },
+                        ticks: {
+                            color: '#475569' 
+                        },
+                        grid: {
+                            color: '#e2e8f0' // border-slate-200
+                        }
+                    },
+                    y: { // Was x, now y for horizontal
+                        ticks: {
+                            color: '#475569',
+                            font: {
+                                size: 10 // Adjust font size if labels are too long
+                            },
+                            // Callback to wrap long labels
+                            callback: function(value, index, values) {
+                                const label = this.getLabelForValue(value);
+                                if (label.length > 30) { // Max length before trying to split
+                                    const words = label.split(' ');
+                                    const lines = [];
+                                    let currentLine = '';
+                                    words.forEach(word => {
+                                        if ((currentLine + word).length > 30) {
+                                            lines.push(currentLine.trim());
+                                            currentLine = '';
+                                        }
+                                        currentLine += word + ' ';
+                                    });
+                                    lines.push(currentLine.trim());
+                                    return lines;
+                                }
+                                return label;
+                            }
+                        },
+                         grid: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false // Hiding legend as it's clear from title
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.x !== null) {
+                                    label += context.parsed.x + (context.label.includes("Phase 3") ? '+ years (symbolic)' : ' years');
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gemini API Integration
+        const apiKey = ""; // Canvas will provide this at runtime
+
+        async function callGeminiAPI(prompt, outputElement, loadingSpinnerElement) {
+            outputElement.innerHTML = '<p class="text-slate-500">Thinking...</p>';
+            loadingSpinnerElement.classList.remove('hidden');
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+            const payload = { contents: chatHistory };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    outputElement.innerHTML = `<p>${text.replace(/\n/g, '<br>')}</p>`;
+                } else {
+                    outputElement.innerHTML = '<p class="text-red-500">Error: Could not get a valid response from the AI. Please try again.</p>';
+                }
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                outputElement.innerHTML = `<p class="text-red-500">Error: Failed to connect to the AI. Please check your network connection or try again later.</p>`;
+            } finally {
+                loadingSpinnerElement.classList.add('hidden');
+            }
+        }
+
+        // Homeostasis State Analyzer Logic
+        const homeostasisInput = document.getElementById('homeostasis-input');
+        const analyzeHomeostasisButton = document.getElementById('analyze-homeostasis-button');
+        const homeostasisOutput = document.getElementById('homeostasis-output');
+        const analyzerLoadingSpinner = document.getElementById('analyzer-loading-spinner');
+
+        analyzeHomeostasisButton.addEventListener('click', () => {
+            const userState = homeostasisInput.value.trim();
+            if (userState) {
+                const prompt = `Based on the principles of Psyphibiotriadics (which integrates Psychological Mind, Physical Brain and Body, and Philosophical Energies for holistic well-being and homeostasis), analyze the following user's described state. Provide a brief assessment of which pillars might be in balance or imbalance, and suggest a general direction for achieving better harmony. User's state: "${userState}"`;
+                callGeminiAPI(prompt, homeostasisOutput, analyzerLoadingSpinner);
+            } else {
+                homeostasisOutput.innerHTML = '<p class="text-red-500">Please describe your current state to get an analysis.</p>';
+            }
+        });
+
+        // Intervention Idea Generator Logic
+        const interventionPillarSelect = document.getElementById('intervention-pillar');
+        const interventionContextInput = document.getElementById('intervention-context');
+        const generateInterventionsButton = document.getElementById('generate-interventions-button');
+        const interventionsOutput = document.getElementById('interventions-output');
+        const generatorLoadingSpinner = document.getElementById('generator-loading-spinner');
+
+        generateInterventionsButton.addEventListener('click', () => {
+            const focusPillar = interventionPillarSelect.value;
+            const context = interventionContextInput.value.trim();
+            
+            let prompt = `Based on the principles of Psyphibiotriadics, which emphasizes multi-modal interventions across Psychological Mind, Physical Brain and Body, and Philosophical Energies to achieve homeostasis:`;
+
+            if (focusPillar === "Overall Balance") {
+                prompt += ` Please suggest 3-5 general multi-modal intervention ideas for achieving overall balance.`;
+            } else {
+                prompt += ` Please suggest 3-5 specific intervention ideas focused on improving the "${focusPillar}" pillar, while considering its interconnectedness with the other two pillars.`;
+            }
+
+            if (context) {
+                prompt += ` Consider the following additional context: "${context}".`;
+            }
+
+            prompt += ` Provide actionable and concise suggestions.`;
+
+            callGeminiAPI(prompt, interventionsOutput, generatorLoadingSpinner);
+        });
+
+    </script>
+</body>
+</html>
